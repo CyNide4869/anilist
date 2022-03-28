@@ -1,0 +1,14 @@
+# Environment files
+env
+.env
+
+# Test files
+*test*
+*temp*
+
+# Json files
+*.json
+
+# Images
+*.jpg
+*.png
