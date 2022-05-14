@@ -69,6 +69,7 @@ def getAuthUserId():
 
     res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
     data = res.json()
+    print(f"\nLogged in as {data['data']['Viewer']['name']}")
     return data['data']['Viewer']['id']
 
 def storeUserMediaList(list_type, status):
@@ -246,7 +247,7 @@ def main():
     setHeader()
     list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
 
-    # storeUserMediaList(list_type, status)
+    storeUserMediaList(list_type, status)
     # deleteCompleteMediaList(list_type, status)
     # saveMediaList(list_type, status)
 
