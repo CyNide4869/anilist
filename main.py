@@ -15,7 +15,7 @@ API = 'https://graphql.anilist.co'
 FORMAT = 'UTF-8'
 ROOT = Path.cwd()
 LISTS = ROOT / 'lists'
-DELETED_JSON = LISTS / 'DELETED.json'
+DELETED_JSON = LISTS / 'deleted.json'
 
 if not LISTS.exists():
     LISTS.mkdir()
@@ -136,7 +136,7 @@ def storeUserMediaList(list_type, status):
         mediaList += data['data']['Page']['mediaList']
         variables['page'] += 1
     
-    with open(f'./lists/{list_type}_{status}.json', 'w', encoding=FORMAT) as f:
+    with open(f'./lists/{list_type.lower()}_{status.lower()}.json', 'w', encoding=FORMAT) as f:
         obj = {}
         obj['total'] = len(mediaList)
         obj['mediaList'] = mediaList
@@ -224,7 +224,7 @@ def saveMediaList(list_type, status):
         'status': status
     }
 
-    with open(f'./lists/{list_type}_{status}.json', 'r', encoding=FORMAT) as f:
+    with open(f'./lists/{list_type.lower()}_{status.lower()}.json', 'r', encoding=FORMAT) as f:
         data = json.load(f)
     
     for entry in data['mediaList']:
@@ -233,8 +233,8 @@ def saveMediaList(list_type, status):
         rem = res.headers['X-RateLimit-Remaining']
         resp = res.json()
         print('Remaining requests: ', rem)
-        if int(rem) == 85:
-            break
+        # if int(rem) == 85:
+        #     break
 
         if rem == '0':
             print('Hit rate limit, waiting 30s...')
