@@ -89,11 +89,14 @@ def storeUserMediaList(list_type, status):
                     id
                     mediaId
                     status
+                    progress
                     media {
                         type
                         format
                         status
                         isAdult
+                        episodes
+                        chapters
                         title {
                             romaji
                             english
@@ -157,7 +160,7 @@ def deleteCompleteMediaList(list_type, status):
         'id': 0
     }
 
-    with open(f'./lists/{list_type}_{status}.json', 'r', encoding=FORMAT) as f:
+    with open(f'./lists/{list_type.lower()}_{status.lower()}.json', 'r', encoding=FORMAT) as f:
         data = json.load(f)
     
     deleted = {
@@ -247,10 +250,29 @@ def main():
     setHeader()
     list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
 
-    storeUserMediaList(list_type, status)
-    # deleteCompleteMediaList(list_type, status)
-    # saveMediaList(list_type, status)
+    print("1) Download Media List\n2) Delete Media List\n3) Save | Update Media List")
+    choice = int(input("Choice: "))
+
+    if choice == 1:
+        storeUserMediaList(list_type, status)
+    elif choice == 2:
+        deleteCompleteMediaList(list_type, status)
+    elif choice == 3:
+        saveMediaList(list_type, status)
+
+
+def custom():
+    userAuth()
+    setHeader()
+    status = ["current", "completed", "paused", "dropped", "planning"]
+
+    for stat in status:
+        print("\n\nAnime", stat)
+        storeUserMediaList("ANIME", stat.upper())
+        print("\n\nManga", stat)
+        storeUserMediaList("MANGA", stat.upper())
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    custom()
