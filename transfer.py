@@ -62,7 +62,8 @@ def setHeader(access_token):
 
     return headers
 
-def getUserDetails(headers):
+
+def getUserDetails(headers, ret=True):
     query = '''
         query {
             Viewer {
@@ -79,7 +80,9 @@ def getUserDetails(headers):
     res = requests.post(API, json={"query": query, "variables": variables}, headers=headers)
     data = res.json()
     print(f"\nLogged in as {data['data']['Viewer']['name']}")
-    return (data["data"]["Viewer"]["id"], data["data"]["Viewer"]["mediaListOptions"]["scoreFormat"])
+    if ret:
+        return (data["data"]["Viewer"]["id"], data["data"]["Viewer"]["mediaListOptions"]["scoreFormat"])
+    return
 
 
 def downloadUserMediaList(list_type, status, access_token):
@@ -162,11 +165,11 @@ def downloadUserMediaList(list_type, status, access_token):
         }, f, indent=4, ensure_ascii=False)
 
 
-def saveUserMediaList(list_type, status, access_token):
+def saveUserMediaList(list_type, access_token, entry, headers):
     
-    headers = setHeader(access_token)
     query = '''
-        mutation () {
+        mutation ($mediaId: Int, $status: MediaListStatus, $score: Float, $progress: Int, $progressVolumes: Int,
+        $repeat: Int, $private: Boolean, $notes: String, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput) {
             SaveMediaListEntry (mediaId: $mediaId, status: $status, score: $score, progress: $progress,
             progressVolumes: $progressVolumes, repeat: $repeat, private: $private, notes: $notes, startedAt: $startedAt, completedAt: $completedAt) {
                 id
@@ -181,9 +184,52 @@ def saveUserMediaList(list_type, status, access_token):
     '''
 
     variables = {
-        "mediaId": 0,
-        "status": status
+        "mediaId": entry['mediaId'],
+        "status": entry['status'],
+        "score": entry['score'],
+        "progress": entry['progress'],
+        "progressVolumes": entry['progressVolumes'] or 0,
+        "repeat": entry['repeat'],
+        "private": entry['private'],
+        "notes": entry['notes'],
+        "startedAt": entry['startedAt'],
+        "completedAt": entry['completedAt']
     }
+
+    res = requests.post(API, json={"query": query, "variables": variables}, headers=headers)
+    return (res.headers["X-RateLimit-Remaining"], res.json())
+
+
+def updateSecondAccount(list_type, status, access_token):
+    with open(f"./lists/{list_type.lower()}_{status.lower()}.json", encoding=FORMAT) as f:
+        data = json.load(f)
+    
+    total = data['total']
+    print("\nEntries to be updated/created: ", total)
+
+    headers = setHeader(access_token)
+    getUserDetails(headers, False)
+    sleepProgress(3)
+
+    for i, entry in enumerate(data['mediaList'], start=1):
+        rem, res = saveUserMediaList(list_type, access_token, entry, headers)
+        print("\nRemaining Requests: ", rem)
+
+        if i == total:
+            break
+
+        print("\n-----Entry Updated-----")
+        print(f'''
+        Entry: {i}
+        Id: {res['data']['SaveMediaListEntry']['id']}
+        Created At: {res['data']['SaveMediaListEntry']['createdAt']}
+        Romaji Title: {res['data']['SaveMediaListEntry']['media']['title']['romaji'] or 'None'}
+        English Title: {res['data']['SaveMediaListEntry']['media']['title']['english'] or 'None'}
+        ''')
+
+        if rem == 0:
+            print("\nHit rate limit, waiting 30s...")
+            sleepProgress(30)
 
 
 def main():
@@ -201,20 +247,12 @@ def main():
     print("\n-----Fetching medialist-----")
     downloadUserMediaList(list_type, status, ACCESS_TOKEN_1)
     print("\nFetched")
+    sleepProgress(3)
 
-    # print("\n-----Update second account-----")
-    # saveUserMediaList(list_type, status, ACCESS_TOKEN_2)
-    # print("\nUpdated")
+    print("\n-----Updating second account-----")
+    updateSecondAccount(list_type, status, ACCESS_TOKEN_2)
+    print("\nUpdated")
 
-    # delete = input("Delete the list from the main account (first account) ? [y/n]: ")
-    # if delete == 'y':
-    #     print("In Progress...")
-    #     # deleteUserMediaList(list_type, status, ACCESS_TOKEN_1)
-    # elif delete == 'n':
-    #     print("\nNot deleting from first account")
-    # else:
-    #     print("\nInvalid input\nexiting program...")
-    #     exit()
 
 if __name__ == "__main__":
     main()
