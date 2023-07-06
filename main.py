@@ -20,17 +20,8 @@ DELETED_JSON = LISTS / 'deleted.json'
 if not LISTS.exists():
     LISTS.mkdir()
 
-if not DELETED_JSON.exists():
-    DELETED_JSON.touch()
-
-# def login(mail, password):
-#     s = requests.Session()
-#     payload = {
-#         'email': mail,
-#         'password': password
-#     }
-
-#     res = s.post()
+def clear_screan():
+    print("\033[H\033[2J", end="")
 
 def sleepProgress(sleep_time):
     while sleep_time >= 0:
@@ -69,7 +60,7 @@ def getAuthUserId():
 
     res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
     data = res.json()
-    print(f"\nLogged in as {data['data']['Viewer']['name']}")
+    print(f"\nLogged in as {data['data']['Viewer']['name']}\n")
     return data['data']['Viewer']['id']
 
 def storeUserMediaList(list_type, status):
@@ -89,7 +80,11 @@ def storeUserMediaList(list_type, status):
                     id
                     mediaId
                     status
+                    score
                     progress
+                    progressVolumes
+                    repeat
+                    notes
                     media {
                         type
                         format
@@ -114,6 +109,8 @@ def storeUserMediaList(list_type, status):
                         month
                         year
                     }
+                    updatedAt
+                    createdAt
                 }
             }
         }
@@ -248,31 +245,47 @@ def saveMediaList(list_type, status):
 def main():
     userAuth()
     setHeader()
-    list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
+    getAuthUserId()
 
-    print("1) Download Media List\n2) Delete Media List\n3) Save | Update Media List")
-    choice = int(input("Choice: "))
+    clear_screan()
+    input("Enter to continue..")
 
-    if choice == 1:
-        storeUserMediaList(list_type, status)
-    elif choice == 2:
-        deleteCompleteMediaList(list_type, status)
-    elif choice == 3:
-        saveMediaList(list_type, status)
+    while True:
+        clear_screan()
 
+        print("1) Download Media List")
+        print("2) Delete Media List")
+        print("3) Save(Upload existing) | Update Media List")
+        print("4) Exit")
 
-def custom():
-    userAuth()
-    setHeader()
-    status = ["current", "completed", "paused", "dropped", "planning"]
+        try:
+            choice = int(input("Choice: "))
+        except ValueError as e:
+            print(e)
+            time.sleep(0.5)
+            continue
 
-    for stat in status:
-        print("\n\nAnime", stat)
-        storeUserMediaList("ANIME", stat.upper())
-        print("\n\nManga", stat)
-        storeUserMediaList("MANGA", stat.upper())
+        if choice == 1:
+            list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
+            storeUserMediaList(list_type, status)
+            input("\n\nSaved lists to ./lists\nEnter to continue..")
+        elif choice == 2:
+            list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
+            deleteCompleteMediaList(list_type, status)
 
+            if not DELETED_JSON.exists():
+                DELETED_JSON.touch()
+
+            input("\n\nLogged lists to ./lists\nEnter to continue..")
+        elif choice == 3:
+            list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
+            input(f"\n\nEnsure {list_type}_{status}.json is in ./lists")
+            saveMediaList(list_type, status)
+        elif choice == 4:
+            exit()
+        else:
+            print("Invalid")
+            time.sleep(0.5)
 
 if __name__ == '__main__':
-    # main()
-    custom()
+    main()
