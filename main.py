@@ -11,6 +11,8 @@ from dotenv import load_dotenv, set_key
 load_dotenv()
 logging.basicConfig(filename="alm.log", level=logging.DEBUG)
 
+session = requests.Session()
+
 CLIENT_ID = os.getenv('CLIENT_ID')
 AUTH_URL = f'https://anilist.co/api/v2/oauth/authorize?client_id={CLIENT_ID}&response_type=token'
 ACCESS_TOKEN = os.getenv('ACCESS_TOKEN') or ''
@@ -62,7 +64,7 @@ def getAuthUserId():
     '''
     variables = {}
 
-    res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
+    res = session.post(API, json={'query': query, 'variables': variables}, headers=headers)
     data = res.json()
     print(f"\nLogged in as {data['data']['Viewer']['name']}")
     logging.info("Fetching User ID")
@@ -134,7 +136,7 @@ def storeUserMediaList(list_type, status):
     
     # While the next page in the response is present, keep requesting for new pages
     while flag:
-        res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
+        res = session.post(API, json={'query': query, 'variables': variables}, headers=headers)
         data = res.json()
 
         error = data.get("errors")
@@ -180,13 +182,14 @@ def deleteCompleteMediaList(list_type, status):
     }
 
     mediaList = data.get("mediaList")
+    error = None
 
     for entry in mediaList:
         variables = {
             "id": entry['id']
         }
 
-        res = requests.post(API, json={'query': deleteQuery, 'variables': variables}, headers=headers)
+        res = session.post(API, json={'query': deleteQuery, 'variables': variables}, headers=headers)
         rem = res.headers['X-RateLimit-Remaining']
         resp = res.json()
 
@@ -197,7 +200,7 @@ def deleteCompleteMediaList(list_type, status):
             break
 
         print('Remaining requests: ', rem)
-        logging.info("Remaining Req: {rem}")
+        logging.info(f"Remaining Req: {rem}")
 
         if rem == '0':
             print('Deleted: ', len(deleted['deleted']))
@@ -283,7 +286,7 @@ def saveMediaList(list_type, status):
             'completedAt': entry["completedAt"]
         }
 
-        res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
+        res = session.post(API, json={'query': query, 'variables': variables}, headers=headers)
         rem = res.headers['X-RateLimit-Remaining']
         resp = res.json()
 
@@ -294,7 +297,7 @@ def saveMediaList(list_type, status):
             logging.error(json.dumps(error))
         else:
             print('Remaining requests: ', rem)
-            logging.info("Remaining Req: {rem}")
+            logging.info(f"Remaining Req: {rem}")
 
             if rem == '0':
                 print('Hit rate limit, waiting 30s...')
