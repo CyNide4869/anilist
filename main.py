@@ -2,9 +2,11 @@ import os
 import json
 import time
 import requests
+import questionary
 from pathlib import Path
 from urllib.parse import urlparse
 from dotenv import load_dotenv, set_key
+
 
 load_dotenv()
 
@@ -60,7 +62,7 @@ def getAuthUserId():
 
     res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
     data = res.json()
-    print(f"\nLogged in as {data['data']['Viewer']['name']}\n")
+    print(f"\nLogged in as {data['data']['Viewer']['name']}")
     return data['data']['Viewer']['id']
 
 def storeUserMediaList(list_type, status):
@@ -84,7 +86,9 @@ def storeUserMediaList(list_type, status):
                     progress
                     progressVolumes
                     repeat
+                    private
                     notes
+                    hiddenFromStatusLists
                     media {
                         type
                         format
@@ -97,7 +101,6 @@ def storeUserMediaList(list_type, status):
                             english
                         }
                     }
-                    hiddenFromStatusLists
                     customLists (asArray: true)
                     startedAt {
                         day
@@ -142,7 +145,7 @@ def storeUserMediaList(list_type, status):
         obj['mediaList'] = mediaList
         print('Total: ', len(mediaList))
         json.dump(obj, f, indent=4, ensure_ascii=False)
-        sleepProgress(3)
+        # sleepProgress(1)
 
 def deleteCompleteMediaList(list_type, status):
     deleteQuery = '''
@@ -200,11 +203,19 @@ def deleteCompleteMediaList(list_type, status):
 
 def saveMediaList(list_type, status):
     query = '''
-    mutation ($mediaId: Int, $status: MediaListStatus) {
-        SaveMediaListEntry (mediaId: $mediaId, status: $status) {
+    mutation ($mediaId: Int, $status: MediaListStatus, $score: Float, $progress: Int, $progressVolumes: Int, $repeat: Int,
+    $private: Boolean, $notes: String, $hiddenFromStatusLists: Boolean, $customLists: [String],
+    $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput) {
+        SaveMediaListEntry (mediaId: $mediaId, status: $status, score: $score, progress: $progress,
+        progressVolumes: $progressVolumes, repeat: $repeat, private: $private, notes: $notes,
+        hiddenFromStatusLists: $hiddenFromStatusLists, customLists: $customLists, startedAt: $startedAt, completedAt: $completedAt) {
             id
             status
-            priority
+            private
+            repeat
+            hiddenFromStatusLists
+            customLists (asArray: true)
+            notes
             media {
                 type
                 format
@@ -219,73 +230,116 @@ def saveMediaList(list_type, status):
     }
     '''
 
-    variables = {
-        'mediaId': 0,
-        'status': status
-    }
-
     with open(f'./lists/{list_type.lower()}_{status.lower()}.json', 'r', encoding=FORMAT) as f:
         data = json.load(f)
     
     for entry in data['mediaList']:
-        variables['mediaId'] = entry['mediaId']
+        variables = {
+            'mediaId': entry["mediaId"],
+            'status': entry["status"],
+            'score': entry["score"],
+            'progress': entry["progress"],
+            'progressVolumes': 0 if entry["progressVolumes"] == None else entry["progressVolumes"],
+            'repeat': entry["repeat"],
+            'private': entry["private"],
+            'notes': entry["notes"],
+            'hiddenFromStatusLists': entry["hiddenFromStatusLists"],
+            'customLists': [x["name"] for x in entry["customLists"] if x["enabled"] == True],
+            'startedAt': entry["startedAt"],
+            'completedAt': entry["completedAt"]
+        }
+
         res = requests.post(API, json={'query': query, 'variables': variables}, headers=headers)
         rem = res.headers['X-RateLimit-Remaining']
         resp = res.json()
         print('Remaining requests: ', rem)
-        # if int(rem) == 85:
-        #     break
 
         if rem == '0':
             print('Hit rate limit, waiting 30s...')
             sleepProgress(30)
         else:
             print(json.dumps(resp, indent=4, ensure_ascii=False))
+    exit()
 
 def main():
     userAuth()
     setHeader()
-    getAuthUserId()
 
     clear_screan()
+    getAuthUserId()
+
     input("Enter to continue..")
+
+    command_options = [
+        "Download Media List",
+        "Delete Media List",
+        "Save(Upload Existing) | Update Media List",
+        "Exit"
+    ]
+
+    type_options = [
+        "Anime",
+        "Manga"
+    ]
+
+    status_options = [
+        "Planning",
+        "Current",
+        "Paused",
+        "Dropped",
+        "Completed"
+    ]
 
     while True:
         clear_screan()
 
-        print("1) Download Media List")
-        print("2) Delete Media List")
-        print("3) Save(Upload existing) | Update Media List")
-        print("4) Exit")
+        command_choice = questionary.select(
+            "Choose an option",
+            qmark=">>",
+            choices=command_options
+        ).ask()
 
-        try:
-            choice = int(input("Choice: "))
-        except ValueError as e:
-            print(e)
-            time.sleep(0.5)
-            continue
+        if command_choice == "Exit":
+            break
+
+        choice = command_options.index(command_choice) + 1
+
+        type_choice = questionary.select(
+            "Type",
+            qmark=">>",
+            choices=type_options
+        ).ask()
+
+        status_choice = questionary.select(
+            "Status",
+            qmark=">>",
+            choices=status_options
+        ).ask()
+
+        list_type = type_choice.upper()
+        status = status_choice.upper()
 
         if choice == 1:
-            list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
             storeUserMediaList(list_type, status)
             input("\n\nSaved lists to ./lists\nEnter to continue..")
-        elif choice == 2:
-            list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
-            deleteCompleteMediaList(list_type, status)
 
+        elif choice == 2:
             if not DELETED_JSON.exists():
                 DELETED_JSON.touch()
-
+            deleteCompleteMediaList(list_type, status)
             input("\n\nLogged lists to ./lists\nEnter to continue..")
+
         elif choice == 3:
-            list_type, status = (input('Enter list type and status [ex: "anime planning" or "manga current"]: ')).upper().split()
-            input(f"\n\nEnsure {list_type}_{status}.json is in ./lists")
+            confirm = questionary.confirm(f"Ensure {list_type.lower()}_{status.lower()}.json is in ./lists", qmark=">>").ask()
+            if not confirm:
+                print("Exiting..")
+                break
             saveMediaList(list_type, status)
+
         elif choice == 4:
             exit()
         else:
-            print("Invalid")
-            time.sleep(0.5)
+            pass
 
 if __name__ == '__main__':
     main()

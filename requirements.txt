@@ -1,6 +1,9 @@
 certifi==2021.10.8
 charset-normalizer==2.0.12
 idna==3.3
+prompt-toolkit==3.0.39
 python-dotenv==0.20.0
+questionary==1.10.0
 requests==2.27.1
 urllib3==1.26.9
+wcwidth==0.2.6
