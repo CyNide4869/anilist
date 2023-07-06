@@ -6,9 +6,8 @@ env
 *test*
 *temp*
 
-# Json files
+# Extensinos
 *.json
-
-# Images
 *.jpg
 *.png
+*.log
